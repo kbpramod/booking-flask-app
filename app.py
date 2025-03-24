@@ -1,16 +1,19 @@
-from flask import Flask, render_template, request, redirect, g
+from flask import Flask, render_template, request, redirect, g, session
 import sqlite3
 
-app = Flask(__name__)  # Initialize Flask application
-DATABASE = 'bookings.db'  # SQLite database file
+app = Flask(__name__)
+DATABASE = 'bookings.db'
+app.secret_key = "your_secret_key"  # Needed for session management
+
+# Hardcoded admin credentials
+ADMIN_USER = "admin"
+ADMIN_PASS = "pass"
 
 # Function to connect to the database
 def get_db():
-    db = getattr(g, '_database', None)  # Check if a database connection already exists
+    db = getattr(g, '_database', None)
     if db is None:
-        db = g._database = sqlite3.connect(DATABASE)  # Connect to SQLite database
-        # Create table if it doesn't exist
-        # Create bookings table if it does not exist
+        db = g._database = sqlite3.connect(DATABASE)
         db.execute("""
             CREATE TABLE IF NOT EXISTS bookings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -19,50 +22,71 @@ def get_db():
                 date TEXT, 
                 time TEXT
             )
-        """)  
-
-        db.commit()  # Save changes
-    return db  # Return database connection
+        """)
+        db.commit()
+    return db
 
 # Close database connection after request is handled
 @app.teardown_appcontext
 def close_connection(exception):
     db = getattr(g, '_database', None)
     if db is not None:
-        db.close()  # Close connection
+        db.close()
 
 # Route for booking form
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    if request.method == 'POST':  # If form is submitted
-        name = request.form['name']  # Get name from form
-        phone = request.form['phone']  # Get phone number from form
-        date = request.form['date']  # Get selected date
-        time = request.form['time']  # Get selected time
-        db = get_db()  # Connect to database
+    if request.method == 'POST':
+        name = request.form['name']
+        phone = request.form['phone']
+        date = request.form['date']
+        time = request.form['time']
+        db = get_db()
         db.execute("INSERT INTO bookings (name, phone, date, time) VALUES (?, ?, ?, ?)",
-                   (name, phone, date, time))  # Insert booking into database
-        db.commit()  # Save changes
-        return redirect('/')  # Redirect to bookings page
-    return render_template('index.html')  # Render booking form template
+                   (name, phone, date, time))
+        db.commit()
+        return redirect('/')
+    return render_template('index.html')
 
-# Route to view all bookings
-@app.route('/bookings')
+# Route to view bookings and login in one page
+@app.route('/bookings', methods=['GET', 'POST'])
 def bookings():
-    db = get_db()  # Connect to database
-    cursor = db.execute("SELECT * FROM bookings")  # Fetch all bookings
-    bookings = cursor.fetchall()  # Store all bookings in a variable
-    return render_template('bookings.html', bookings=bookings)  # Render admin panel template
+    if request.method == 'POST':
+        # Handle admin login
+        username = request.form.get('Username')
+        password = request.form.get('password')
 
-# Route to delete a booking
+        if username == ADMIN_USER and password == ADMIN_PASS:
+            session['admin'] = True  # Store admin session
+        else:
+            return render_template('bookings.html', error="Invalid credentials", bookings=[])
+
+    if 'admin' not in session:
+        return render_template('bookings.html', error=None, bookings=[])
+
+    # Fetch and display bookings if admin is logged in
+    db = get_db()
+    cursor = db.execute("SELECT id, name, phone, date, time FROM bookings")
+    bookings = cursor.fetchall()
+    return render_template('bookings.html', error=None, bookings=bookings)
+
+# Route to delete a booking (Only Admins Can Delete)
 @app.route('/delete/<int:id>')
 def delete_booking(id):
-    db = get_db()  # Connect to database
-    db.execute("DELETE FROM bookings WHERE id = ?", (id,))  # Delete booking by ID
-    db.commit()  # Save changes
-    return redirect('/bookings')  # Redirect back to bookings page
+    if 'admin' not in session:
+        return redirect('/bookings')
 
+    db = get_db()
+    db.execute("DELETE FROM bookings WHERE id = ?", (id,))
+    db.commit()
+    return redirect('/bookings')
+
+# Logout Route
+@app.route('/logout')
+def logout():
+    session.pop('admin', None)  # Remove admin session
+    return redirect('/bookings')
 
 # Run the Flask app
 if __name__ == '__main__':
-    app.run(debug=True)  # Start the server in debug mode
+    app.run(debug=True)
