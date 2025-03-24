@@ -5,26 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bookings List</title>
     <link rel="stylesheet" href="static/style.css">
-    <style>
-        .container {
-            display: none;
-        }
-    </style>
 </head>
 <body>
-    <div class="login">
-        <h2>Admin login</h2>
-        <form>
-            <label for="user">Username</label>
-            <input type="text" id="user" name="Username"required>
-
-            <label for="password">Password</label>
-            <input type="password" id="password" name="password"required>
-
-            <button type="submit">Login</button>
-        </form>
-
-    </div>
+    {% if session['admin'] %}
+    <!-- Admin Dashboard (Only Visible if Logged In) -->
     <div class="container">
         <h2>All Bookings</h2>
         <table>
@@ -36,6 +20,7 @@
                 <th>Time</th>
                 <th>Action</th>
             </tr>
+            <!-- Example bookings (Replace with actual data from Flask) -->
             {% for booking in bookings %}
             <tr>
                 <td>{{ booking[0] }}</td>
@@ -48,31 +33,26 @@
             {% endfor %}
         </table>
         <br>
-        <a href="/">Go Back</a>
+        <a href="/logout">Logout</a>
     </div>
+
+    {% else %}
+    <!-- Login Form (Only Visible if Not Logged In) -->
+    <div class="login">
+        <h2>Admin Login</h2>
+        {% if error %}
+            <p style="color: red;">{{ error }}</p>
+        {% endif %}
+        <form method="POST">
+            <label for="user">Username</label>
+            <input type="text" id="user" name="Username" required>
+
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+
+            <button type="submit">Login</button>
+        </form>
+    </div>
+    {% endif %}
 </body>
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const form = document.querySelector("form");
-        
-            form.addEventListener("submit", function(event) {
-                event.preventDefault(); // Prevent form submission refresh
-
-                const user = document.getElementById("user").value.trim();
-                const pass = document.getElementById("password").value.trim();
-        
-                if (!user || !pass) {
-                    alert("Please enter credentials.");
-                }
-
-                if (user == "admin" && pass == "pass"){
-                    document.querySelector(".container").style.display="block";
-                    document.querySelector(".login").style.display="none";
-                    alert("welcome!")
-                } else {
-                    alert("Invalid credentials.")
-                }
-            });
-        });
-    </script>
 </html>
